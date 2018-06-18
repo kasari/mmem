@@ -1,0 +1,50 @@
+package repository
+
+{{ $Table := .Name | toPascal }}
+{{ $table := .Name | toCamel }}
+
+type {{ $Table }}Repository struct {
+	records []*data.{{ $Table }}
+
+	{{- range .UniqueColumns }}
+		recordBy{{ .Name | toPascal }} map[{{ .Type }}]*data.{{ $Table }}
+	{{- end}}
+}
+
+func New{{ $Table }}Repository() *{{ $Table }}Repository {
+	return &{{ $Table }}Repository{}
+}
+
+
+func (repo *{{ $Table }}Repository) All() []*data.{{ $Table }} {
+	return repo.records
+}
+
+func (repo *{{ $Table }}Repository) Where(predicate func({{ $table }}*data.{{ $Table }}) bool) []*data.{{ $Table }} {
+	result := []*data.{{ $Table }}{}
+	for _, record := range repo.records {
+		if predicate(record) {
+			result = append(result, record)
+		}
+	}
+	return result
+}
+
+{{ range .UniqueColumns }}{{ $Column := .Name | toPascal }}{{ $column := .Name | toPascal }}
+	func (repo *{{ $Table }}Repository) FindBy{{ $Column }}({{ $column }} {{ .Type }}) *data.{{ $Table }} {
+		return repo.recordBy{{ $Column }}[{{ $column }}]
+	}
+{{ end }}
+
+func (repo *{{ $Table }}Repository) Add({{ $table }}*data.{{ $Table }}) error {
+	repo.records = append(repo.records, {{ $table }})
+
+	{{ range .UniqueColumns }}{{ $Column := .Name | toPascal }}
+		if _, ok := repo.recordBy{{ $Column }}[{{ $table }}.{{ $Column }}]; ok {
+			return fmt.Errorf("can't add record because duplicate {{ $Column }}(%v)", {{ $table }}.{{ $Column }})
+		}
+		repo.recordBy{{ $Column }}[{{ $table }}.{{ $Column }}] = {{ $table }}
+	{{ end }}
+
+	return nil
+}
